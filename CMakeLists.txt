@@ -70,7 +70,7 @@ add_library(ast STATIC
 add_library(typing STATIC
         slang/types/Type.cpp slang/types/Type.h slang/types/SymbolTable.cpp slang/types/SymbolTable.h slang/visitors/TypeChecker.cpp slang/visitors/TypeChecker.h slang/Exception.h slang/ast/statements/WhileStmt.cpp slang/ast/statements/WhileStmt.h slang/types/primitives/BoolType.cpp slang/types/primitives/BoolType.h slang/types/primitives/IntType.cpp slang/types/primitives/IntType.h slang/types/primitives/FloatType.cpp slang/types/primitives/FloatType.h)
 
-add_executable(slang main.cpp slang/SourceFile.cpp slang/SourceFile.h slang/visitors/IrGenerator.cpp slang/visitors/IrGenerator.h slang/Exception.h)
+add_executable(slang slang/main.cpp slang/SourceFile.cpp slang/SourceFile.h slang/visitors/IrGenerator.cpp slang/visitors/IrGenerator.h slang/Exception.h)
 
 
 include_directories(slang slang/ast slang/visitors slang/types)
