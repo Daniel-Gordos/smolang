@@ -19,7 +19,6 @@ add_library(lexer STATIC slang/Lexer.cpp slang/SourceFile.cpp slang/SourceFile.h
 add_library(ast STATIC
         slang/ast/ASTNode.h
         slang/ast/Program.cpp
-        slang/ast/functions/FuncDefList.cpp
         slang/ast/functions/FuncDef.cpp
         slang/ast/functions/FuncSignature.cpp
         slang/ASTBuilder.cpp
@@ -29,13 +28,10 @@ add_library(ast STATIC
         slang/ast/functions/FuncParamDef.h
         slang/ast/VarRef.cpp
         slang/ast/VarRef.h
-        slang/ast/functions/FuncParamDefList.cpp
-        slang/ast/functions/FuncParamDefList.h
         slang/visitors/IVisitor.h
         slang/visitors/Printer.cpp
         slang/visitors/Printer.h
         slang/ast/statements/Stmt.cpp
-        slang/ast/statements/StmtList.cpp
         slang/ast/expressions/Expr.h
         slang/ast/expressions/InferredDeclExpr.cpp
         slang/ast/expressions/InferredDeclExpr.h
@@ -53,8 +49,6 @@ add_library(ast STATIC
         slang/ast/expressions/UnaryExpr.h
         slang/ast/expressions/LiteralExpr.cpp
         slang/ast/expressions/LiteralExpr.h
-        slang/ast/functions/FuncBody.cpp
-        slang/ast/functions/FuncBody.h
         slang/ast/expressions/AssignExpr.cpp
         slang/ast/expressions/AssignExpr.h
         slang/ast/statements/IfStmt.cpp
@@ -63,12 +57,10 @@ add_library(ast STATIC
         slang/ast/statements/ReturnStmt.h
         slang/ast/expressions/CallExpr.cpp
         slang/ast/expressions/CallExpr.h
-        slang/ast/expressions/CallArgList.cpp
-        slang/ast/expressions/CallArgList.h
-        slang/ast/Symbol.h slang/ast/functions/FuncRef.cpp slang/ast/functions/FuncRef.h slang/Exception.h slang/ast/statements/WhileStmt.cpp slang/ast/statements/WhileStmt.h)
+        slang/ast/Symbol.h slang/ast/functions/FuncRef.cpp slang/ast/functions/FuncRef.h slang/Exception.h slang/ast/statements/WhileStmt.cpp slang/ast/statements/WhileStmt.h slang/ast/statements/StmtBlock.cpp slang/ast/statements/StmtBlock.h)
 
 add_library(typing STATIC
-        slang/types/Type.cpp slang/types/Type.h slang/types/SymbolTable.cpp slang/types/SymbolTable.h slang/visitors/TypeChecker.cpp slang/visitors/TypeChecker.h slang/Exception.h slang/ast/statements/WhileStmt.cpp slang/ast/statements/WhileStmt.h slang/types/primitives/BoolType.cpp slang/types/primitives/BoolType.h slang/types/primitives/IntType.cpp slang/types/primitives/IntType.h slang/types/primitives/FloatType.cpp slang/types/primitives/FloatType.h)
+        slang/types/Type.cpp slang/types/Type.h slang/types/SymbolTable.cpp slang/types/SymbolTable.h slang/visitors/TypeChecker.cpp slang/visitors/TypeChecker.h slang/Exception.h slang/ast/statements/WhileStmt.cpp slang/ast/statements/WhileStmt.h slang/types/primitives/BoolType.cpp slang/types/primitives/BoolType.h slang/types/primitives/IntType.cpp slang/types/primitives/IntType.h slang/types/primitives/FloatType.cpp slang/types/primitives/FloatType.h slang/ast/statements/StmtBlock.cpp slang/ast/statements/StmtBlock.h)
 
 add_executable(slang slang/main.cpp slang/SourceFile.cpp slang/SourceFile.h slang/visitors/IrGenerator.cpp slang/visitors/IrGenerator.h slang/Exception.h)
 

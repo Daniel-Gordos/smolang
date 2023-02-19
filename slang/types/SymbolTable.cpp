@@ -64,12 +64,12 @@ public:
         return nullptr;
     }
 
-    void enter_func(FuncSignature const &sig)
+    void enter_func(FuncSignature &sig)
     {
         _funcs.emplace(std::string(sig.get_name()->get_token().get_spelling()), &sig);
     }
 
-    [[nodiscard]] const FuncSignature *retrieve_func(std::string_view name) const
+    [[nodiscard]] FuncSignature *retrieve_func(std::string_view name) const
     {
         auto it = _funcs.find(name);
         if (it == _funcs.end())
@@ -89,7 +89,7 @@ public:
 
 private:
     std::vector<Scope> _scopes{};
-    std::map<std::string, const FuncSignature *, std::less<>> _funcs;
+    std::map<std::string, FuncSignature *, std::less<>> _funcs;
     TypeMap _types{};
 };
 
@@ -100,8 +100,8 @@ SymbolTable::VarInfo *SymbolTable::retrieve_var(std::string_view name) const
 {
     return _impl->retrieve_var(name);
 }
-void SymbolTable::enter_func(const FuncSignature &sig) { _impl->enter_func(sig); }
-FuncSignature const *SymbolTable::retrieve_func(std::string_view name) const
+void SymbolTable::enter_func(FuncSignature &sig) { _impl->enter_func(sig); }
+FuncSignature *SymbolTable::retrieve_func(std::string_view name) const
 {
     return _impl->retrieve_func(name);
 }

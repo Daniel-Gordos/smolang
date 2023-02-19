@@ -42,16 +42,13 @@ public:
     void print_ir() const;
 
     llvm::Value *visit_type(Program &program, FuncContext *c) override;
-    llvm::Value *visit_type(FuncDefList &list, FuncContext *c) override;
     llvm::Value *visit_type(FuncSignature &signature, FuncContext *c) override;
     llvm::Value *visit_type(BinaryExpr &expr, FuncContext *c) override;
     llvm::Value *visit_type(VarRefExpr &expr, FuncContext *c) override;
     llvm::Value *visit_type(LiteralExpr &expr, FuncContext *c) override;
     llvm::Value *visit_type(FuncDef &def, FuncContext *c) override;
     llvm::Value *visit_type(FuncParamDef &def, FuncContext *c) override;
-    llvm::Value *visit_type(FuncParamDefList &list, FuncContext *c) override;
-    llvm::Value *visit_type(FuncBody &body, FuncContext *c) override;
-    llvm::Value *visit_type(StmtList &list, FuncContext *c) override;
+    llvm::Value *visit_type(StmtBlock &list, FuncContext *c) override;
     llvm::Value *visit_type(AssignExpr &expr, FuncContext *c) override;
     llvm::Value *visit_type(InferredDeclExpr &expr, FuncContext *c) override;
     llvm::Value *visit_type(ExprStmt &stmt, FuncContext *c) override;

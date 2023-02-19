@@ -4,14 +4,12 @@
 #include "Type.h"
 #include "expressions/AssignExpr.h"
 #include "expressions/BinaryExpr.h"
-#include "expressions/CallArgList.h"
 #include "expressions/CallExpr.h"
 #include "expressions/DerefExpr.h"
 #include "expressions/InferredDeclExpr.h"
 #include "expressions/LiteralExpr.h"
 #include "expressions/UnaryExpr.h"
 #include "expressions/VarRefExpr.h"
-#include "functions/FuncBody.h"
 #include "statements/ExprStmt.h"
 #include "statements/IfStmt.h"
 #include "statements/ReturnStmt.h"
@@ -49,7 +47,8 @@ void *Printer::visit_type(Program &program, void *ctx)
 {
     indent() << "<Program>\n";
     ++_indent_level;
-    program.func_def_list->accept(*this, {});
+    for (auto &func: program)
+        func->accept(*this, {});
     --_indent_level;
     indent() << "</Program>\n";
     return {};
@@ -59,30 +58,10 @@ void *Printer::visit_type(FuncDef &def, void *ctx)
     indent() << "<FuncDef>\n";
     ++_indent_level;
     def.get_signature()->accept(*this, {});
-    def.get_body()->accept(*this, {});
+    if (def.get_body())
+        def.get_body()->accept(*this, {});
     --_indent_level;
     indent() << "</FuncDef>\n";
-    return {};
-}
-void *Printer::visit_type(FuncDefList &list, void *ctx)
-{
-    indent() << "<FuncDefList>\n";
-    ++_indent_level;
-    list.get_func_def()->accept(*this, {});
-    if (list.get_next())
-        list.get_next()->accept(*this, {});
-    --_indent_level;
-    indent() << "</FuncDefList>\n";
-    return {};
-}
-void *Printer::visit_type(FuncBody &body, void *c)
-{
-    indent() << "<FuncBody>\n";
-    ++_indent_level;
-    if (body.get_statements())
-        body.get_statements()->accept(*this, {});
-    --_indent_level;
-    indent() << "</FuncBody>\n";
     return {};
 }
 void *Printer::visit_type(FuncSignature &signature, void *ctx)
@@ -92,32 +71,20 @@ void *Printer::visit_type(FuncSignature &signature, void *ctx)
     ++_indent_level;
     if (signature.get_return_type())
         signature.get_return_type()->accept(*this, {});
-    if (signature.get_params())
-        signature.get_params()->accept(*this, {});
+    for (auto &param: signature)
+        param->accept(*this, {});
     --_indent_level;
     indent() << "</FuncSignature>\n";
     return {};
 }
-void *Printer::visit_type(StmtList &list, void *ctx)
+void *Printer::visit_type(StmtBlock &block, void *ctx)
 {
     indent() << "<StmtList>\n";
     ++_indent_level;
-    list.get_statement()->accept(*this, {});
-    if (list.get_next())
-        list.get_next()->accept(*this, {});
+    for (auto &stmt: block)
+        stmt->accept(*this, {});
     --_indent_level;
     indent() << "</StmtList>\n";
-    return {};
-}
-void *Printer::visit_type(FuncParamDefList &list, void *ctx)
-{
-    indent() << "<FuncParamDefList>\n";
-    ++_indent_level;
-    list.get_param()->accept(*this, {});
-    if (list.get_next())
-        list.get_next()->accept(*this, {});
-    --_indent_level;
-    indent() << "</FuncParamDefList>\n";
     return {};
 }
 void *Printer::visit_type(FuncParamDef &def, void *ctx)
@@ -243,21 +210,10 @@ void *Printer::visit_type(CallExpr &expr, void *c)
     indent() << "<CallExpr name=\"" << expr.get_name()->get_token().get_spelling()
              << "\" type=" << show_type(expr.get_type()) << ">\n";
     ++_indent_level;
-    if (expr.get_args())
-        expr.get_args()->accept(*this, {});
+    for (auto &arg: expr)
+        arg->accept(*this, {});
     --_indent_level;
     indent() << "</CallExpr>\n";
-    return {};
-}
-void *Printer::visit_type(CallArgList &list, void *c)
-{
-    indent() << "<CallArgList>\n";
-    ++_indent_level;
-    list.get_arg()->accept(*this, {});
-    if (list.get_next())
-        list.get_next()->accept(*this, {});
-    --_indent_level;
-    indent() << "</CallArgList>\n";
     return {};
 }
 void *Printer::visit_type(WhileStmt &stmt, void *c)

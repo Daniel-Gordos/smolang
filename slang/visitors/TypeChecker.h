@@ -27,16 +27,12 @@ public:
     TypeChecker();
 
     Type *visit_type(Program &program, Type *c) override;
-    Type *visit_type(FuncDefList &list, Type *c) override;
     Type *visit_type(FuncSignature &signature, Type *c) override;
     Type *visit_type(FuncParamDef &def, Type *c) override;
-    Type *visit_type(FuncParamDefList &list, Type *c) override;
-    Type *visit_type(FuncBody &body, Type *c) override;
     Type *visit_type(FuncDef &def, Type *c) override;
-    Type *visit_type(StmtList &list, Type *c) override;
+    Type *visit_type(StmtBlock &list, Type *c) override;
     Type *visit_type(VarRef &var, Type *c) override;
     Type *visit_type(CallExpr &expr, Type *c) override;
-    Type *visit_type(CallArgList &list, Type *c) override;
     Type *visit_type(ExprStmt &stmt, Type *c) override;
     Type *visit_type(BinaryExpr &expr, Type *c) override;
     Type *visit_type(UnaryExpr &expr, Type *c) override;
@@ -60,7 +56,7 @@ private:
     Type *get_unary_op_type(Type &, const Token &);
     Type *get_binary_op_type(Type &, Type &, const Token &);
     Type *get_literal_type(const Token &);
-    void verify_func_call_args(const FuncSignature &, CallExpr &);
+    void verify_func_call_args(FuncSignature &, CallExpr &);
     void initialize_builtin_funcs();
 
     SymbolTable _symbol_table;

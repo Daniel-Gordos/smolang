@@ -3,9 +3,10 @@
 #define SLANG_PROGRAM_H
 
 #include "ASTNode.h"
-#include "ast/functions/FuncDefList.h"
+#include "functions/FuncDef.h"
 #include "visitors/IVisitor.h"
 #include <memory>
+#include <vector>
 
 namespace slang
 {
@@ -13,9 +14,16 @@ namespace slang
 class Program : public ASTNode
 {
 public:
-    explicit Program(std::unique_ptr<FuncDefList> &&);
+    Program() = default;
     void *accept(IVisitor &visitor, void *pVoid) override;
-    std::unique_ptr<FuncDefList> func_def_list;
+
+    void add_func(std::unique_ptr<FuncDef>);
+
+    std::vector<std::unique_ptr<FuncDef>>::iterator begin();
+    std::vector<std::unique_ptr<FuncDef>>::iterator end();
+
+private:
+    std::vector<std::unique_ptr<FuncDef>> _funcs{};
 };
 
 } // namespace slang

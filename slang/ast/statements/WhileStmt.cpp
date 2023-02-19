@@ -2,12 +2,12 @@
 
 namespace slang
 {
-WhileStmt::WhileStmt(std::unique_ptr<Expr> &&expr, std::unique_ptr<StmtList> &&stmts)
+WhileStmt::WhileStmt(std::unique_ptr<Expr> &&expr, std::unique_ptr<StmtBlock> &&stmts)
     : _expr(std::move(expr))
     , _stmts(std::move(stmts))
 {}
 std::unique_ptr<Expr> &WhileStmt::get_expr() { return _expr; }
-std::unique_ptr<StmtList> &WhileStmt::get_stmts() { return _stmts; }
+std::unique_ptr<StmtBlock> &WhileStmt::get_stmts() { return _stmts; }
 
 void *WhileStmt::accept(IVisitor &visitor, void *p_void)
 {

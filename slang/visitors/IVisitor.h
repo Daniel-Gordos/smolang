@@ -7,10 +7,8 @@ namespace slang
 // Forward declare to avoid circular deps
 class Program;
 
-class FuncDefList;
 class FuncDef;
 class FuncSignature;
-class FuncParamDefList;
 class FuncParamDef;
 class FuncBody;
 
@@ -20,6 +18,7 @@ class VarRef;
 
 class StmtList;
 class Stmt;
+class StmtBlock;
 class ExprStmt;
 class ReturnStmt;
 
@@ -35,7 +34,6 @@ class DerefExpr;
 class AssignExpr;
 
 class CallExpr;
-class CallArgList;
 
 class ASTNode;
 
@@ -46,10 +44,9 @@ public:
 
     virtual void *visit(Program &, void *) = 0;
     virtual void *visit(FuncDef &, void *) = 0;
-    virtual void *visit(FuncDefList &, void *) = 0;
     virtual void *visit(FuncSignature &, void *) = 0;
     virtual void *visit(StmtList &, void *) = 0;
-    virtual void *visit(FuncParamDefList &, void *) = 0;
+    virtual void *visit(StmtBlock &, void *) = 0;
     virtual void *visit(FuncParamDef &, void *) = 0;
     virtual void *visit(FuncBody &, void *) = 0;
     virtual void *visit(TypeRef &, void *) = 0;
@@ -67,7 +64,6 @@ public:
     virtual void *visit(WhileStmt &, void *) = 0;
     virtual void *visit(ReturnStmt &, void *) = 0;
     virtual void *visit(CallExpr &, void *) = 0;
-    virtual void *visit(CallArgList &, void *) = 0;
 };
 
 // Visitor type with strongly typed context parameter and return parameter
@@ -82,12 +78,11 @@ protected:
 public:
     virtual R *visit_type(Program &, C *) { return nullptr; }
     virtual R *visit_type(FuncDef &, C *) { return nullptr; }
-    virtual R *visit_type(FuncDefList &, C *) { return nullptr; }
     virtual R *visit_type(FuncSignature &, C *) { return nullptr; }
     virtual R *visit_type(FuncParamDef &, C *) { return nullptr; }
-    virtual R *visit_type(FuncParamDefList &, C *) { return nullptr; }
     virtual R *visit_type(FuncBody &, C *) { return nullptr; }
     virtual R *visit_type(StmtList &, C *) { return nullptr; }
+    virtual R *visit_type(StmtBlock &, C *) { return nullptr; }
     virtual R *visit_type(TypeRef &, C *) { return nullptr; }
     virtual R *visit_type(FuncRef &, C *) { return nullptr; }
     virtual R *visit_type(VarRef &, C *) { return nullptr; }
@@ -103,13 +98,12 @@ public:
     virtual R *visit_type(WhileStmt &, C *) { return nullptr; }
     virtual R *visit_type(ReturnStmt &, C *) { return nullptr; }
     virtual R *visit_type(CallExpr &, C *) { return nullptr; }
-    virtual R *visit_type(CallArgList &, C *) { return nullptr; }
 
     void *visit(slang::Program &p, void *ctx) final
     {
         return visit_type(p, static_cast<C *>(ctx));
     }
-    void *visit(slang::FuncDefList &p, void *ctx) final
+    void *visit(slang::StmtBlock &p, void *ctx) final
     {
         return visit_type(p, static_cast<C *>(ctx));
     }
@@ -118,10 +112,6 @@ public:
         return visit_type(p, static_cast<C *>(ctx));
     }
     void *visit(slang::FuncSignature &p, void *ctx) final
-    {
-        return visit_type(p, static_cast<C *>(ctx));
-    }
-    void *visit(slang::FuncParamDefList &p, void *ctx) final
     {
         return visit_type(p, static_cast<C *>(ctx));
     }
@@ -190,10 +180,6 @@ public:
         return visit_type(p, static_cast<C *>(ctx));
     }
     void *visit(slang::CallExpr &p, void *ctx) final
-    {
-        return visit_type(p, static_cast<C *>(ctx));
-    }
-    void *visit(slang::CallArgList &p, void *ctx) final
     {
         return visit_type(p, static_cast<C *>(ctx));
     }

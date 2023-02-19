@@ -8,16 +8,17 @@
 #include "expressions/LiteralExpr.h"
 #include "expressions/UnaryExpr.h"
 #include "expressions/VarRefExpr.h"
-#include "functions/FuncBody.h"
 #include "statements/ExprStmt.h"
 #include "statements/IfStmt.h"
 #include "statements/ReturnStmt.h"
+#include "statements/StmtBlock.h"
 #include "statements/WhileStmt.h"
 
 #include <memory>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace slang
 {
@@ -49,14 +50,13 @@ private:
     }
 
     std::unique_ptr<Program> parse_program();
-    std::unique_ptr<FuncDefList> parse_func_def_list();
     std::unique_ptr<FuncDef> parse_func_def();
     std::unique_ptr<FuncSignature> parse_func_signature();
-    std::unique_ptr<StmtList> parse_stmt_block();
+    std::unique_ptr<StmtBlock> parse_stmt_block();
     std::unique_ptr<Stmt> parse_stmt();
     std::unique_ptr<StmtList> parse_stmt_list();
-    std::unique_ptr<FuncParamDefList> parse_func_param_def_list();
     std::unique_ptr<FuncParamDef> parse_func_param_def();
+    std::vector<std::unique_ptr<FuncParamDef>> parse_param_list();
     std::unique_ptr<ExprStmt> parse_expr_stmt();
     std::unique_ptr<Expr> parse_expr();
     std::unique_ptr<Expr> parse_expr_climbing(std::unique_ptr<Expr> &&, int);
@@ -66,7 +66,6 @@ private:
     std::unique_ptr<ReturnStmt> parse_return_stmt();
     std::unique_ptr<WhileStmt> parse_while_stmt();
     std::unique_ptr<CallExpr> parse_call_expr_tail(Token);
-    std::unique_ptr<CallArgList> parse_call_args();
 
     static int precedence_of(Token const &);
     static std::unique_ptr<Expr> make_binary_expr_type(
@@ -105,30 +104,29 @@ std::unique_ptr<Program> ASTBuilder::Impl::build() { return parse_program(); }
 
 std::unique_ptr<Program> ASTBuilder::Impl::parse_program()
 {
-    auto program = std::make_unique<Program>(parse_func_def_list());
-    match(Token::_EOF);
-    return program;
-}
+    auto program = std::make_unique<Program>();
 
-std::unique_ptr<FuncDefList> ASTBuilder::Impl::parse_func_def_list()
-{
     while (accept_if(Token::NEWLINE))
         ; // Skip empty lines between func defs
 
-    if (!curr_is(Token::FUN))
-        return {}; // No functions definitions in program
+    while (curr_is(Token::FUN))
+    {
+        program->add_func(parse_func_def());
 
-    auto funcs = std::make_unique<FuncDefList>(parse_func_def(), parse_func_def_list());
+        while (accept_if(Token::NEWLINE))
+            ;
+    }
 
-    return funcs;
+    match(Token::_EOF);
+    return program;
 }
 
 std::unique_ptr<FuncDef> ASTBuilder::Impl::parse_func_def()
 {
     auto signature = parse_func_signature();
     match(Token::NEWLINE);
-    auto func_body = std::make_unique<FuncBody>(parse_stmt_block());
-    return std::make_unique<FuncDef>(std::move(signature), std::move(func_body));
+    auto body = parse_stmt_block();
+    return std::make_unique<FuncDef>(std::move(signature), std::move(body));
 }
 
 std::unique_ptr<FuncSignature> ASTBuilder::Impl::parse_func_signature()
@@ -136,7 +134,9 @@ std::unique_ptr<FuncSignature> ASTBuilder::Impl::parse_func_signature()
     match(Token::FUN);
     auto func_name = std::make_unique<FuncRef>(match(Token::IDENT));
     match(Token::LPAREN);
-    auto params = parse_func_param_def_list();
+
+    auto params = parse_param_list();
+
     match(Token::RPAREN);
 
     auto return_type = std::unique_ptr<TypeRef>{};
@@ -151,8 +151,32 @@ std::unique_ptr<FuncSignature> ASTBuilder::Impl::parse_func_signature()
 
     return sig;
 }
+std::vector<std::unique_ptr<FuncParamDef>> ASTBuilder::Impl::parse_param_list()
+{
+    auto params = std::vector<std::unique_ptr<FuncParamDef>>{};
 
-std::unique_ptr<StmtList> ASTBuilder::Impl::parse_stmt_block()
+    // Cases:
+    // foo()
+    // foo(a)
+    // foo(a,)
+    // foo(a, b)
+    // foo(a, b,) etc..
+
+    if (!curr_is(Token::RPAREN))
+        params.push_back(parse_func_param_def());
+
+    while (!curr_is(Token::RPAREN))
+    {
+        match(Token::COMMA);
+        if (curr_is(Token::RPAREN))
+            break;
+
+        params.push_back(parse_func_param_def());
+    }
+
+    return params;
+}
+std::unique_ptr<StmtBlock> ASTBuilder::Impl::parse_stmt_block()
 {
     match(Token::INDENT);
     if (accept_if(Token::PASS))
@@ -161,16 +185,14 @@ std::unique_ptr<StmtList> ASTBuilder::Impl::parse_stmt_block()
         match(Token::DEDENT);
         return {};
     }
-    auto block = parse_stmt_list();
-    match(Token::DEDENT);
-    return block;
-}
 
-std::unique_ptr<StmtList> ASTBuilder::Impl::parse_stmt_list()
-{
-    if (curr_is(Token::DEDENT))
-        return {};
-    return std::make_unique<StmtList>(parse_stmt(), parse_stmt_list());
+    auto stmts = std::vector<std::unique_ptr<Stmt>>{};
+    while (!curr_is(Token::DEDENT))
+        stmts.emplace_back(parse_stmt());
+
+    match(Token::DEDENT);
+
+    return std::make_unique<StmtBlock>(std::move(stmts));
 }
 
 std::unique_ptr<WhileStmt> ASTBuilder::Impl::parse_while_stmt()
@@ -201,19 +223,6 @@ std::unique_ptr<Stmt> ASTBuilder::Impl::parse_stmt()
         default:
             return parse_expr_stmt();
     }
-}
-std::unique_ptr<FuncParamDefList> ASTBuilder::Impl::parse_func_param_def_list()
-{
-    if (curr_is(Token::RPAREN))
-        return {};
-
-    auto param = parse_func_param_def();
-    if (!curr_is(Token::RPAREN) || curr_is(Token::COMMA))
-    {
-        match(Token::COMMA); // Accept possibly trailing comma
-    }
-    return std::make_unique<FuncParamDefList>(
-        std::move(param), parse_func_param_def_list());
 }
 
 std::unique_ptr<FuncParamDef> ASTBuilder::Impl::parse_func_param_def()
@@ -334,6 +343,26 @@ std::unique_ptr<Expr> ASTBuilder::Impl::make_binary_expr_type(
             return std::make_unique<BinaryExpr>(std::move(lhs), std::move(rhs), op);
     }
 }
+std::unique_ptr<CallExpr> ASTBuilder::Impl::parse_call_expr_tail(Token name)
+{
+    auto args = std::vector<std::unique_ptr<Expr>>{};
+    match(Token::LPAREN);
+
+    if (!curr_is(Token::RPAREN))
+        args.emplace_back(parse_expr());
+
+    while (!curr_is(Token::RPAREN))
+    {
+        match(Token::COMMA);
+        if (curr_is(Token::RPAREN))
+            break;
+
+        args.emplace_back(parse_expr());
+    }
+    match(Token::RPAREN);
+
+    return std::make_unique<CallExpr>(std::make_unique<FuncRef>(name), std::move(args));
+}
 std::unique_ptr<IfStmt> ASTBuilder::Impl::parse_if_stmt()
 {
     match(Token::IF);
@@ -343,10 +372,11 @@ std::unique_ptr<IfStmt> ASTBuilder::Impl::parse_if_stmt()
 
     auto body = parse_stmt_block();
 
-    std::unique_ptr<StmtList> else_block;
+    std::unique_ptr<StmtBlock> else_block;
     if (curr_is(Token::ELIF))
     {
-        else_block = std::make_unique<StmtList>(parse_elif_stmt(), nullptr);
+        else_block = std::make_unique<StmtBlock>(std::vector<std::unique_ptr<Stmt>>{});
+        else_block->add_stmt(parse_elif_stmt());
     }
     else if (accept_if(Token::ELSE))
     {
@@ -368,10 +398,11 @@ std::unique_ptr<IfStmt> ASTBuilder::Impl::parse_elif_stmt()
 
     auto body = parse_stmt_block();
 
-    std::unique_ptr<StmtList> else_block;
+    std::unique_ptr<StmtBlock> else_block;
     if (curr_is(Token::ELIF))
     {
-        else_block = std::make_unique<StmtList>(parse_elif_stmt(), nullptr);
+        else_block = std::make_unique<StmtBlock>(std::vector<std::unique_ptr<Stmt>>{});
+        else_block->add_stmt(parse_elif_stmt());
     }
     else if (accept_if(Token::ELSE))
     {
@@ -392,27 +423,6 @@ std::unique_ptr<ReturnStmt> ASTBuilder::Impl::parse_return_stmt()
         match(Token::NEWLINE);
 
     return std::make_unique<ReturnStmt>(std::move(expr));
-}
-std::unique_ptr<CallExpr> ASTBuilder::Impl::parse_call_expr_tail(Token name)
-{
-    match(Token::LPAREN);
-    auto args = parse_call_args();
-    match(Token::RPAREN);
-    return std::make_unique<CallExpr>(std::make_unique<FuncRef>(name), std::move(args));
-}
-std::unique_ptr<CallArgList> ASTBuilder::Impl::parse_call_args()
-{
-    if (curr_is(Token::RPAREN))
-    {
-        return {};
-    }
-
-    auto expr = parse_expr();
-    if (!curr_is(Token::RPAREN) || curr_is(Token::COMMA))
-    {
-        match(Token::COMMA);
-    }
-    return std::make_unique<CallArgList>(std::move(expr), parse_call_args());
 }
 
 ASTBuilder::ASTBuilder(const std::vector<Token> &tokens)

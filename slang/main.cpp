@@ -39,7 +39,7 @@ int main(int argc, char **argv)
 
         if (debug_mode)
         {
-            auto printer = slang::Printer{std::cout, 2};
+            auto printer = slang::Printer{std::cout, 4};
             ast->accept(printer, {});
         }
 

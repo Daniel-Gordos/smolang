@@ -3,22 +3,25 @@
 
 #include "Expr.h"
 #include "VarRef.h"
-#include "expressions/CallArgList.h"
+#include <vector>
 
 namespace slang
 {
 class CallExpr : public Expr
 {
 public:
-    CallExpr(std::unique_ptr<FuncRef> &&, std::unique_ptr<CallArgList> &&);
+    CallExpr(std::unique_ptr<FuncRef> &&, std::vector<std::unique_ptr<Expr>>);
     std::unique_ptr<FuncRef> const &get_name();
-    std::unique_ptr<CallArgList> const &get_args();
+
+    std::vector<std::unique_ptr<Expr>>::iterator begin();
+    std::vector<std::unique_ptr<Expr>>::iterator end();
+    std::size_t length() const;
 
     void *accept(IVisitor &visitor, void *ctx) override;
 
 private:
     std::unique_ptr<FuncRef> _name;
-    std::unique_ptr<CallArgList> _args;
+    std::vector<std::unique_ptr<Expr>> _args;
 };
 
 } // namespace slang

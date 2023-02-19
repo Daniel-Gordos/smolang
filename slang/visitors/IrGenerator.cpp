@@ -11,6 +11,7 @@
 #include "statements/ExprStmt.h"
 #include "statements/IfStmt.h"
 #include "statements/ReturnStmt.h"
+#include "statements/StmtBlock.h"
 #include "statements/WhileStmt.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
@@ -61,18 +62,16 @@ struct FuncContext
 
 void IRGenerator::forward_declare_funcs(Program &program)
 {
-    for (auto def_list = program.func_def_list.get(); def_list;
-         def_list = def_list->get_next().get())
+    for (auto &func: program)
     {
-        auto &func_signature = def_list->get_func_def()->get_signature();
+        auto &func_signature = func->get_signature();
         auto name = func_signature->get_name()->get_token().get_spelling();
 
         // Construct list of parameters
         auto params = std::vector<llvm::Type *>{};
-        for (auto node = func_signature->get_params().get(); node;
-             node = node->get_next().get())
+        for (auto &param: *func_signature)
         {
-            auto type = primitive_to_llvm_type(node->get_param()->get_type()->get_type());
+            auto type = primitive_to_llvm_type(param->get_type()->get_type());
             params.push_back(type);
         }
 
@@ -82,16 +81,16 @@ void IRGenerator::forward_declare_funcs(Program &program)
         auto llvm_return_type = primitive_to_llvm_type(return_type);
         auto llvm_signature = llvm::FunctionType::get(llvm_return_type, params, false);
 
-        auto func = llvm::Function::Create(
+        auto llvm_func = llvm::Function::Create(
             llvm_signature, llvm::GlobalValue::ExternalLinkage, name, _impl->module);
 
         // Set parameter names
-        auto node = func_signature->get_params().get();
-        for (auto &arg: func->args())
+        auto arg_it = llvm_func->arg_begin();
+        for (auto param_it = func_signature->begin(); param_it != func_signature->end();
+             ++arg_it, ++param_it)
         {
-            auto &arg_name = node->get_param()->get_var()->get_token();
-            arg.setName(arg_name.get_spelling());
-            node = node->get_next().get();
+            auto &arg_name = param_it->get()->get_var()->get_token();
+            arg_it->setName(arg_name.get_spelling());
         }
     }
 }
@@ -100,8 +99,8 @@ llvm::Value *IRGenerator::visit_type(Program &program, FuncContext *c)
 {
     forward_declare_funcs(program);
 
-    if (program.func_def_list)
-        program.func_def_list->accept(*this, {});
+    for (auto &func: program)
+        func->accept(*this, c);
 
     return {};
 }
@@ -116,7 +115,8 @@ llvm::Value *IRGenerator::visit_type(FuncDef &def, FuncContext *c)
     auto ctx = FuncContext{*def.get_signature(), *func};
 
     def.get_signature()->accept(*this, &ctx);
-    def.get_body()->accept(*this, &ctx);
+    if (def.get_body())
+        def.get_body()->accept(*this, &ctx);
     terminate_block(&ctx);
     return {};
 }
@@ -125,15 +125,13 @@ llvm::Value *IRGenerator::visit_type(FuncSignature &signature, FuncContext *c)
 {
 
     auto i = 0;
-    for (auto node = signature.get_params().get(); node;
-         node = node->get_next().get(), ++i)
+    for (auto &param: signature)
     {
-        auto &param_def = node->get_param();
         auto arg = c->func.getArg(i);
 
-        auto var_name = param_def->get_var()->get_token().get_spelling();
+        auto var_name = param->get_var()->get_token().get_spelling();
 
-        auto llvm_type = primitive_to_llvm_type(param_def->get_type()->get_type());
+        auto llvm_type = primitive_to_llvm_type(param->get_type()->get_type());
         auto alloc = _impl->builder.CreateAlloca(llvm_type, {}, var_name);
         _impl->builder.CreateStore(arg, alloc);
 
@@ -144,37 +142,6 @@ llvm::Value *IRGenerator::visit_type(FuncSignature &signature, FuncContext *c)
 }
 
 llvm::Value *IRGenerator::visit_type(FuncParamDef &def, FuncContext *c) { return {}; }
-llvm::Value *IRGenerator::visit_type(FuncParamDefList &list, FuncContext *c)
-{
-    list.get_param()->accept(*this, c);
-    if (list.get_next())
-        list.get_next()->accept(*this, c);
-    return {};
-}
-llvm::Value *IRGenerator::visit_type(FuncBody &body, FuncContext *c)
-{
-    if (body.get_statements())
-        body.get_statements()->accept(*this, c);
-    return {};
-}
-
-llvm::Value *IRGenerator::visit_type(StmtList &list, FuncContext *c)
-{
-    list.get_statement()->accept(*this, c);
-    if (list.get_next())
-        list.get_next()->accept(*this, c);
-    return {};
-}
-
-llvm::Value *IRGenerator::visit_type(FuncDefList &list, FuncContext *c)
-{
-    list.get_func_def()->accept(*this, {});
-
-    if (list.get_next())
-        list.get_next()->accept(*this, {});
-
-    return {};
-}
 
 void IRGenerator::print_ir() const { _impl->module.print(llvm::outs(), nullptr); }
 
@@ -261,15 +228,13 @@ llvm::Value *IRGenerator::visit_type(LiteralExpr &expr, FuncContext *c)
     }
     // TODO: Error handling on this
 }
+
 llvm::Value *IRGenerator::visit_type(CallExpr &expr, FuncContext *c)
 {
-
     auto args = std::vector<llvm::Value *>{};
-    for (auto node = expr.get_args().get(); node; node = node->get_next().get())
+    for (auto &arg: expr)
     {
-        auto &arg_expr = node->get_arg();
-
-        auto res = arg_expr->accept(*this, c);
+        auto res = arg->accept(*this, c);
         args.push_back(static_cast<llvm::Value *>(res));
     }
 
@@ -390,6 +355,13 @@ llvm::Value *IRGenerator::visit_type(IfStmt &stmt, FuncContext *c)
     func->insert(func->end(), end_block);
     _impl->builder.SetInsertPoint(end_block);
 
+    return {};
+}
+
+llvm::Value *IRGenerator::visit_type(StmtBlock &block, FuncContext *c)
+{
+    for (auto &stmt: block)
+        stmt->accept(*this, c);
     return {};
 }
 

@@ -12,7 +12,6 @@
 #include "expressions/LiteralExpr.h"
 #include "expressions/UnaryExpr.h"
 #include "expressions/VarRefExpr.h"
-#include "functions/FuncBody.h"
 #include "functions/FuncSignature.h"
 #include "statements/ExprStmt.h"
 #include "statements/IfStmt.h"
@@ -124,13 +123,8 @@ Type *TypeChecker::get_literal_type(const Token &token)
 }
 void TypeChecker::register_funcs(Program &program)
 {
-
-    for (auto def_list = program.func_def_list.get(); def_list;
-         def_list = def_list->get_next().get())
-    {
-        auto &func = def_list->get_func_def();
+    for (auto &func: program)
         _symbol_table.enter_func(*func->get_signature());
-    }
 }
 
 void TypeChecker::add_to_symbol_table(VarRef &var, TypeRef &var_type)
@@ -151,10 +145,8 @@ TypeChecker::TypeChecker()
 void check_if_func_names_unique(Program &program)
 {
     auto func_names = std::unordered_set<std::string_view>{};
-    for (auto def_list = program.func_def_list.get(); def_list;
-         def_list = def_list->get_next().get())
+    for (auto &func: program)
     {
-        auto &func = def_list->get_func_def();
         auto name = func->get_signature()->get_name()->get_token().get_spelling();
         if (func_names.contains(name))
         {
@@ -168,15 +160,14 @@ void check_if_func_names_unique(Program &program)
 
 void check_has_main_func(Program &program)
 {
-    for (auto def_list = program.func_def_list.get(); def_list;
-         def_list = def_list->get_next().get())
+    for (auto &func: program)
     {
-        auto &func_signature = def_list->get_func_def()->get_signature();
+        auto &func_signature = func->get_signature();
         auto name = func_signature->get_name()->get_token().get_spelling();
 
         if (name == "main")
         {
-            if (func_signature->get_params())
+            if (func_signature->begin() != func_signature->end())
                 throw TypeCheckerException("Main function should have no arguments");
             return;
         }
@@ -224,16 +215,9 @@ Type *TypeChecker::visit_type(Program &program, Type *c)
     check_has_main_func(program);
     register_funcs(program);
 
-    program.func_def_list->accept(*this, {});
+    for (auto &func: program)
+        func->accept(*this, c);
 
-    return {};
-}
-
-Type *TypeChecker::visit_type(FuncDefList &list, Type *c)
-{
-    list.get_func_def()->accept(*this, c);
-    if (list.get_next())
-        list.get_next()->accept(*this, c);
     return {};
 }
 
@@ -241,7 +225,8 @@ Type *TypeChecker::visit_type(FuncDef &def, Type *c)
 {
     _symbol_table.open_scope();
     def.get_signature()->accept(*this, c);
-    def.get_body()->accept(*this, c);
+    if (def.get_body())
+        def.get_body()->accept(*this, c);
     _symbol_table.close_scope();
     return {};
 }
@@ -249,8 +234,8 @@ Type *TypeChecker::visit_type(FuncDef &def, Type *c)
 Type *TypeChecker::visit_type(FuncSignature &signature, Type *c)
 {
     _symbol_table.enter_func(signature);
-    if (signature.get_params())
-        signature.get_params()->accept(*this, c);
+    for (auto &param: signature)
+        param->accept(*this, c);
 
     if (signature.get_return_type())
     {
@@ -294,30 +279,7 @@ Type *TypeChecker::visit_type(FuncParamDef &def, Type *c)
     return type;
 }
 
-Type *TypeChecker::visit_type(FuncParamDefList &list, Type *c)
-{
-    list.get_param()->accept(*this, c);
-    if (list.get_next())
-        list.get_next()->accept(*this, c);
-    return {};
-}
-
-Type *TypeChecker::visit_type(FuncBody &body, Type *c)
-{
-    if (body.get_statements())
-        body.get_statements()->accept(*this, c);
-    return {};
-}
-
 TypeMap TypeChecker::get_defined_types() { return _symbol_table.acquire_types(); }
-
-Type *TypeChecker::visit_type(StmtList &list, Type *c)
-{
-    list.get_statement()->accept(*this, c);
-    if (list.get_next())
-        list.get_next()->accept(*this, c);
-    return {};
-}
 
 Type *TypeChecker::visit_type(VarRef &var, Type *c)
 {
@@ -392,6 +354,13 @@ Type *TypeChecker::visit_type(AssignExpr &expr, Type *c)
     return rhs_type;
 }
 
+Type *TypeChecker::visit_type(StmtBlock &block, Type *c)
+{
+    for (auto &stmt: block)
+        stmt->accept(*this, c);
+    return {};
+}
+
 Type *TypeChecker::visit_type(InferredDeclExpr &expr, Type *c)
 {
     auto &new_var = expr.get_lhs()->get_var();
@@ -418,48 +387,38 @@ Type *TypeChecker::visit_type(CallExpr &expr, Type *c)
     auto return_type = declaration->get_return_type()->get_type();
     expr.set_type(return_type);
 
-    if (expr.get_args())
-        expr.get_args()->accept(*this, c);
+    for (auto &arg: expr)
+        arg->accept(*this, c);
 
     verify_func_call_args(*declaration, expr);
 
     return return_type;
 }
 
-Type *TypeChecker::visit_type(CallArgList &list, Type *c)
+void TypeChecker::verify_func_call_args(FuncSignature &signature, CallExpr &expr)
 {
-    list.get_arg()->accept(*this, c);
-    if (list.get_next())
-        list.get_next()->accept(*this, c);
+    if (signature.length() != expr.length())
+        throw make_wrong_arg_count_error(expr);
 
-    return {};
-}
-
-void TypeChecker::verify_func_call_args(const FuncSignature &signature, CallExpr &expr)
-{
-    auto signature_node = signature.get_params().get();
-    auto call_node = expr.get_args().get();
-    while (signature_node && call_node)
+    auto param_it = signature.begin();
+    auto arg_it = expr.begin();
+    for (; arg_it != expr.end(); ++param_it, ++arg_it)
     {
-        auto expected_type = signature_node->get_param()->get_type()->get_type();
-        auto got_type = call_node->get_arg()->get_type();
+        auto expected_type = param_it->get()->get_type()->get_type();
+        auto got_type = arg_it->get()->get_type();
+
         if (!is_assignable_to(*expected_type, *got_type))
             throw make_not_assignable_error(*expected_type, *got_type);
-
-        signature_node = signature_node->get_next().get();
-        call_node = call_node->get_next().get();
     }
-    if (signature_node || call_node)
-        throw make_wrong_arg_count_error(expr);
 }
 
 void TypeChecker::initialize_builtin_funcs()
 {
-    auto putint_args = std::make_unique<FuncParamDefList>(
-        std::make_unique<FuncParamDef>(
-            std::make_unique<TypeRef>(Token(Token::IDENT, {}, "int")),
-            std::make_unique<VarRef>(Token(Token::IDENT, {}, "i"))),
-        nullptr);
+    auto putint_args = std::vector<std::unique_ptr<FuncParamDef>>{};
+
+    putint_args.push_back(std::make_unique<FuncParamDef>(
+        std::make_unique<TypeRef>(Token(Token::IDENT, {}, "int")),
+        std::make_unique<VarRef>(Token(Token::IDENT, {}, "i"))));
 
     auto putint = std::make_unique<FuncSignature>(
         nullptr, std::make_unique<FuncRef>(Token(Token::IDENT, {}, "putint")),

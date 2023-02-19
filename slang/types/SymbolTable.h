@@ -32,8 +32,8 @@ public:
     void enter_var(VarRef &, Type *);
     [[nodiscard]] VarInfo *retrieve_var(std::string_view) const;
 
-    void enter_func(FuncSignature const &);
-    [[nodiscard]] const FuncSignature *retrieve_func(std::string_view) const;
+    void enter_func(FuncSignature &);
+    [[nodiscard]] FuncSignature *retrieve_func(std::string_view) const;
 
     [[nodiscard]] Type *retrieve_type(std::string_view);
 
