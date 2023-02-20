@@ -21,28 +21,30 @@ private:
     std::string _msg;
 };
 
-class TypeChecker : public AbstractVisitor<Type, Type>
+struct FuncContext;
+
+class TypeChecker : public AbstractVisitor<FuncContext, Type>
 {
 public:
     TypeChecker();
 
-    Type *visit_type(Program &program, Type *c) override;
-    Type *visit_type(FuncSignature &signature, Type *c) override;
-    Type *visit_type(FuncParamDef &def, Type *c) override;
-    Type *visit_type(FuncDef &def, Type *c) override;
-    Type *visit_type(StmtBlock &list, Type *c) override;
-    Type *visit_type(VarRef &var, Type *c) override;
-    Type *visit_type(CallExpr &expr, Type *c) override;
-    Type *visit_type(ExprStmt &stmt, Type *c) override;
-    Type *visit_type(BinaryExpr &expr, Type *c) override;
-    Type *visit_type(UnaryExpr &expr, Type *c) override;
-    Type *visit_type(VarRefExpr &expr, Type *c) override;
-    Type *visit_type(InferredDeclExpr &expr, Type *c) override;
-    Type *visit_type(LiteralExpr &expr, Type *c) override;
-    Type *visit_type(AssignExpr &expr, Type *c) override;
-    Type *visit_type(ReturnStmt &stmt, Type *c) override;
-    Type *visit_type(IfStmt &stmt, Type *c) override;
-    Type *visit_type(WhileStmt &stmt, Type *c) override;
+    Type *visit_type(Program &program, FuncContext *c) override;
+    Type *visit_type(FuncSignature &signature, FuncContext *c) override;
+    Type *visit_type(FuncParamDef &def, FuncContext *c) override;
+    Type *visit_type(FuncDef &def, FuncContext *c) override;
+    Type *visit_type(StmtBlock &list, FuncContext *c) override;
+    Type *visit_type(VarRef &var, FuncContext *c) override;
+    Type *visit_type(CallExpr &expr, FuncContext *c) override;
+    Type *visit_type(ExprStmt &stmt, FuncContext *c) override;
+    Type *visit_type(BinaryExpr &expr, FuncContext *c) override;
+    Type *visit_type(UnaryExpr &expr, FuncContext *c) override;
+    Type *visit_type(VarRefExpr &expr, FuncContext *c) override;
+    Type *visit_type(InferredDeclExpr &expr, FuncContext *c) override;
+    Type *visit_type(LiteralExpr &expr, FuncContext *c) override;
+    Type *visit_type(AssignExpr &expr, FuncContext *c) override;
+    Type *visit_type(ReturnStmt &stmt, FuncContext *c) override;
+    Type *visit_type(IfStmt &stmt, FuncContext *c) override;
+    Type *visit_type(WhileStmt &stmt, FuncContext *c) override;
 
     TypeMap get_defined_types();
 

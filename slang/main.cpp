@@ -1,21 +1,23 @@
 #include "ASTBuilder.h"
 #include "Lexer.h"
 #include "SourceFile.h"
+#include "dependencies/args.h"
 #include "visitors/IrGenerator.h"
 #include "visitors/Printer.h"
 #include "visitors/TypeChecker.h"
 #include <fstream>
 #include <iostream>
 
-int main(int argc, char **argv)
+int main(int, char **argv)
 {
-    if (argc < 2)
+    auto args = argh::parser{argv};
+
+    if (args.size() < 2)
     {
-        std::cerr << "Usage: ./slang <source_file> [--debug]\n";
+        std::cerr << "Usage: " << args[0] << " <source_file> [--debug] [--check]\n";
         exit(1);
     }
-    auto const input_file = argv[1];
-    bool debug_mode = (argc > 2) && (std::string(argv[2]) == "--debug");
+    auto const &input_file = args[1];
 
     auto f = std::ifstream{input_file};
     if (!f.good())
@@ -37,7 +39,12 @@ int main(int argc, char **argv)
         slang::TypeChecker type_checker;
         ast->accept(type_checker, {});
 
-        if (debug_mode)
+        if (args["check"])
+        {
+            return 0;
+        }
+
+        if (args["debug"])
         {
             auto printer = slang::Printer{std::cout, 4};
             ast->accept(printer, {});

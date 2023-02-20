@@ -85,6 +85,20 @@ TypeCheckerException make_wrong_arg_count_error(CallExpr &expr)
     return TypeCheckerException(buf.str());
 }
 
+TypeCheckerException
+make_wrong_return_type_error(Type *got_type, FuncSignature &func_signature)
+{
+    auto buf = std::stringstream{};
+    buf << "Cannot return type " << got_type->get_name() << " from function "
+        << func_signature.get_name()->get_token().get_spelling();
+    return TypeCheckerException(buf.str());
+}
+
+struct FuncContext
+{
+    FuncSignature &signature;
+};
+
 bool TypeChecker::is_assignable_to(Type &lhs, Type &rhs) const
 {
     return rhs.is_assignable_from(&lhs);
@@ -174,7 +188,7 @@ void check_has_main_func(Program &program)
     }
     throw TypeCheckerException("Main function not found");
 }
-Type *TypeChecker::visit_type(WhileStmt &stmt, Type *c)
+Type *TypeChecker::visit_type(WhileStmt &stmt, FuncContext *c)
 {
     auto expr_type = static_cast<Type *>(stmt.get_expr()->accept(*this, c));
     if (!is_assignable_to(*_symbol_table.retrieve_type("bool"), *expr_type))
@@ -209,7 +223,7 @@ Type *TypeChecker::get_binary_op_type(Type &lhs, Type &rhs, const Token &op)
     return &rhs;
 }
 
-Type *TypeChecker::visit_type(Program &program, Type *c)
+Type *TypeChecker::visit_type(Program &program, FuncContext *c)
 {
     check_if_func_names_unique(program);
     check_has_main_func(program);
@@ -221,17 +235,19 @@ Type *TypeChecker::visit_type(Program &program, Type *c)
     return {};
 }
 
-Type *TypeChecker::visit_type(FuncDef &def, Type *c)
+Type *TypeChecker::visit_type(FuncDef &def, FuncContext *c)
 {
     _symbol_table.open_scope();
-    def.get_signature()->accept(*this, c);
+    def.get_signature()->accept(*this, {});
+
+    auto ctx = FuncContext{*def.get_signature()};
     if (def.get_body())
-        def.get_body()->accept(*this, c);
+        def.get_body()->accept(*this, &ctx);
     _symbol_table.close_scope();
     return {};
 }
 
-Type *TypeChecker::visit_type(FuncSignature &signature, Type *c)
+Type *TypeChecker::visit_type(FuncSignature &signature, FuncContext *c)
 {
     _symbol_table.enter_func(signature);
     for (auto &param: signature)
@@ -249,7 +265,7 @@ Type *TypeChecker::visit_type(FuncSignature &signature, Type *c)
     return {};
 }
 
-Type *TypeChecker::visit_type(IfStmt &stmt, Type *c)
+Type *TypeChecker::visit_type(IfStmt &stmt, FuncContext *c)
 {
     auto expr_type = static_cast<Type *>(stmt.get_expr()->accept(*this, c));
     if (!is_assignable_to(*_symbol_table.retrieve_type("bool"), *expr_type))
@@ -268,7 +284,7 @@ Type *TypeChecker::visit_type(IfStmt &stmt, Type *c)
     return {};
 }
 
-Type *TypeChecker::visit_type(FuncParamDef &def, Type *c)
+Type *TypeChecker::visit_type(FuncParamDef &def, FuncContext *c)
 {
     auto type_name = def.get_type()->get_token().get_spelling();
     auto type = _symbol_table.retrieve_type(type_name);
@@ -281,7 +297,7 @@ Type *TypeChecker::visit_type(FuncParamDef &def, Type *c)
 
 TypeMap TypeChecker::get_defined_types() { return _symbol_table.acquire_types(); }
 
-Type *TypeChecker::visit_type(VarRef &var, Type *c)
+Type *TypeChecker::visit_type(VarRef &var, FuncContext *c)
 {
     auto definition = _symbol_table.retrieve_var(var.get_token().get_spelling());
     if (!definition)
@@ -289,13 +305,13 @@ Type *TypeChecker::visit_type(VarRef &var, Type *c)
     return definition->type;
 }
 
-Type *TypeChecker::visit_type(ExprStmt &stmt, Type *c)
+Type *TypeChecker::visit_type(ExprStmt &stmt, FuncContext *c)
 {
     stmt.get_expr()->accept(*this, c);
     return {};
 }
 
-Type *TypeChecker::visit_type(BinaryExpr &expr, Type *c)
+Type *TypeChecker::visit_type(BinaryExpr &expr, FuncContext *c)
 {
     auto lhs_type = static_cast<Type *>(expr.get_lhs()->accept(*this, c));
     auto rhs_type = static_cast<Type *>(expr.get_rhs()->accept(*this, c));
@@ -307,7 +323,7 @@ Type *TypeChecker::visit_type(BinaryExpr &expr, Type *c)
     return synthed_type;
 }
 
-Type *TypeChecker::visit_type(UnaryExpr &expr, Type *c)
+Type *TypeChecker::visit_type(UnaryExpr &expr, FuncContext *c)
 {
     auto expr_type = static_cast<Type *>(expr.get_expr()->accept(*this, c));
     auto &op = expr.get_op();
@@ -318,7 +334,7 @@ Type *TypeChecker::visit_type(UnaryExpr &expr, Type *c)
     return synthed_type;
 }
 
-Type *TypeChecker::visit_type(VarRefExpr &expr, Type *c)
+Type *TypeChecker::visit_type(VarRefExpr &expr, FuncContext *c)
 {
     auto existing =
         _symbol_table.retrieve_var(expr.get_var()->get_token().get_spelling());
@@ -329,20 +345,28 @@ Type *TypeChecker::visit_type(VarRefExpr &expr, Type *c)
     return existing->type;
 }
 
-Type *TypeChecker::visit_type(ReturnStmt &stmt, Type *c)
+Type *TypeChecker::visit_type(ReturnStmt &stmt, FuncContext *c)
 {
     stmt.get_expr()->accept(*this, c);
+
+    auto got_type = stmt.get_expr()->get_type();
+    auto func_type = c->signature.get_return_type()
+                         ? c->signature.get_return_type()->get_type()
+                         : nullptr;
+    if (!is_assignable_to(*func_type, *got_type))
+        throw make_wrong_return_type_error(got_type, c->signature);
+
     return {};
 }
 
-Type *TypeChecker::visit_type(LiteralExpr &expr, Type *c)
+Type *TypeChecker::visit_type(LiteralExpr &expr, FuncContext *c)
 {
     auto type = get_literal_type(expr.get_token());
     expr.set_type(type);
     return type;
 }
 
-Type *TypeChecker::visit_type(AssignExpr &expr, Type *c)
+Type *TypeChecker::visit_type(AssignExpr &expr, FuncContext *c)
 {
     auto lhs_type = static_cast<Type *>(expr.get_lhs()->accept(*this, c));
     auto rhs_type = static_cast<Type *>(expr.get_rhs()->accept(*this, c));
@@ -354,14 +378,14 @@ Type *TypeChecker::visit_type(AssignExpr &expr, Type *c)
     return rhs_type;
 }
 
-Type *TypeChecker::visit_type(StmtBlock &block, Type *c)
+Type *TypeChecker::visit_type(StmtBlock &block, FuncContext *c)
 {
     for (auto &stmt: block)
         stmt->accept(*this, c);
     return {};
 }
 
-Type *TypeChecker::visit_type(InferredDeclExpr &expr, Type *c)
+Type *TypeChecker::visit_type(InferredDeclExpr &expr, FuncContext *c)
 {
     auto &new_var = expr.get_lhs()->get_var();
     auto var_name = new_var->get_token().get_spelling();
@@ -377,7 +401,7 @@ Type *TypeChecker::visit_type(InferredDeclExpr &expr, Type *c)
     return type;
 }
 
-Type *TypeChecker::visit_type(CallExpr &expr, Type *c)
+Type *TypeChecker::visit_type(CallExpr &expr, FuncContext *c)
 {
     auto func_name = expr.get_name()->get_token().get_spelling();
     auto declaration = _symbol_table.retrieve_func(func_name);

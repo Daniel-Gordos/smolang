@@ -57,7 +57,7 @@ add_library(ast STATIC
         slang/ast/statements/ReturnStmt.h
         slang/ast/expressions/CallExpr.cpp
         slang/ast/expressions/CallExpr.h
-        slang/ast/Symbol.h slang/ast/functions/FuncRef.cpp slang/ast/functions/FuncRef.h slang/Exception.h slang/ast/statements/WhileStmt.cpp slang/ast/statements/WhileStmt.h slang/ast/statements/StmtBlock.cpp slang/ast/statements/StmtBlock.h)
+        slang/ast/Symbol.h slang/ast/functions/FuncRef.cpp slang/ast/functions/FuncRef.h slang/Exception.h slang/ast/statements/WhileStmt.cpp slang/ast/statements/WhileStmt.h slang/ast/statements/StmtBlock.cpp slang/ast/statements/StmtBlock.h slang/dependencies/args.h)
 
 add_library(typing STATIC
         slang/types/Type.cpp slang/types/Type.h slang/types/SymbolTable.cpp slang/types/SymbolTable.h slang/visitors/TypeChecker.cpp slang/visitors/TypeChecker.h slang/Exception.h slang/ast/statements/WhileStmt.cpp slang/ast/statements/WhileStmt.h slang/types/primitives/BoolType.cpp slang/types/primitives/BoolType.h slang/types/primitives/IntType.cpp slang/types/primitives/IntType.h slang/types/primitives/FloatType.cpp slang/types/primitives/FloatType.h slang/ast/statements/StmtBlock.cpp slang/ast/statements/StmtBlock.h)
