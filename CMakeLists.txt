@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.23)
 project(slang)
 
 set(CMAKE_CXX_STANDARD 20)
+enable_testing()
 
 # LLVM Stuff
 find_package(LLVM REQUIRED CONFIG)
@@ -73,3 +74,8 @@ target_link_libraries(typing ast)
 
 
 target_link_libraries(slang lexer ast typing ${llvm_libs} ${LLVM_LDFLAGS})
+
+add_executable(tests slang/Tests.cpp)
+
+find_package(GTest)
+target_link_libraries(tests GTest::gtest GTest::gtest_main lexer ast typing)
